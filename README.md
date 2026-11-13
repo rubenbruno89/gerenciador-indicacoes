@@ -9,7 +9,7 @@ Use um destes endereços:
 - https://gerenciador-indicacoes.shardweb.app/
 - https://rubenbruno89.github.io/gerenciador-indicacoes/
 
-Também é possível baixar o arquivo `indicacoes.html` e abri-lo diretamente no navegador.
+Também é possível baixar o arquivo `index.html` e abri-lo diretamente no navegador.
 
 ## Funcionalidades
 
