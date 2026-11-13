@@ -1,7 +1,16 @@
 # Gerenciador de Indicações de Clientes
 
 Sistema em um único arquivo HTML para cadastrar clientes, gerar um código de indicação a partir do nome e registrar quem indicou quem. Os dados ficam em um banco SQLite (`.db`), com salvamento automático no navegador e opções para exportar e importar.
-https://gerenciador-indicacoes.shardweb.app/
+
+## Acesso
+
+Use um destes endereços:
+
+- https://gerenciador-indicacoes.shardweb.app/
+- https://rubenbruno89.github.io/gerenciador-indicacoes/
+
+Também é possível baixar o arquivo `indicacoes.html` e abri-lo diretamente no navegador.
+
 ## Funcionalidades
 
 - Cadastro de clientes com nome, telefone, e-mail e observações
@@ -19,12 +28,12 @@ https://gerenciador-indicacoes.shardweb.app/
 - [sql.js](https://github.com/sql-js/sql.js) para usar SQLite no navegador
 - IndexedDB para manter os dados ao fechar a página
 
-Não é necessário instalar nada. O sistema funciona abrindo o arquivo no navegador.
+Não é necessário instalar nada. O sistema funciona no navegador.
 
 ## Como usar
 
-1. Baixe o arquivo `index.html`.
-2. Abra-o no Chrome, Edge ou Firefox.
+1. Acesse um dos links acima ou baixe o arquivo `index.html`.
+2. Use o Chrome, Edge ou Firefox.
 3. Na primeira abertura, é necessária conexão com a internet para carregar a biblioteca SQLite.
 4. Cadastre os clientes e acompanhe as indicações.
 
@@ -68,7 +77,7 @@ Tabela `clientes`:
 
 ## Observações
 
-- Os dados ficam apenas no navegador em que o arquivo foi usado.
+- Os dados ficam apenas no navegador em que o sistema foi usado.
 - A internet é necessária na primeira abertura para carregar o SQLite.
 - A importação de um `.db` substitui todos os dados atuais.
 - O arquivo contém dados pessoais. Guarde os backups em local seguro e não os compartilhe publicamente.
