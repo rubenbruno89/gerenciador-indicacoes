@@ -4,505 +4,790 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Gerenciador de Indicações</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/sql-wasm.js"></script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'Segoe UI', Arial, sans-serif; background: #f0f2f5; color: #333; }
-  header { background: linear-gradient(135deg, #4f46e5, #7c3aed); color: #fff; padding: 20px 30px; }
-  header h1 { font-size: 24px; }
-  header p { opacity: .85; font-size: 14px; }
-  .container { max-width: 1300px; margin: 0 auto; padding: 20px; }
-  .toolbar { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 20px; }
-  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px; }
-  .stat { background: #fff; padding: 18px; border-radius: 12px; box-shadow: 0 2px 6px rgba(0,0,0,.06); }
-  .stat span { font-size: 13px; color: #666; }
-  .stat strong { display: block; font-size: 26px; color: #4f46e5; margin-top: 5px; }
-  .grid { display: grid; grid-template-columns: 350px 1fr; gap: 20px; }
+  body { font-family: Segoe UI, Arial, sans-serif; background: #f0f2f5; color: #333; }
+  header { background: linear-gradient(135deg, #4f46e5, #7c3aed); color: #fff; padding: 18px 24px; display: flex; justify-content: space-between; gap: 12px; align-items: center; flex-wrap: wrap; }
+  header h1 { font-size: 22px; }
+  header p { opacity: .85; font-size: 13px; margin-top: 4px; }
+  #status { background: rgba(255,255,255,.2); border-radius: 20px; padding: 8px 12px; font-size: 13px; font-weight: 700; max-width: 420px; }
+  #status.alerta { background: #fbbf24; color: #111; }
+  #status.erro { background: #fecaca; color: #991b1b; }
+  .container { max-width: 1200px; margin: 0 auto; padding: 18px; }
+  .aviso { background: #fff7ed; border: 1px solid #fdba74; color: #9a3412; border-radius: 10px; padding: 10px 12px; font-size: 13px; margin-bottom: 14px; }
+  .toolbar, .stats { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+  .stat, .card { background: #fff; border-radius: 12px; box-shadow: 0 2px 6px rgba(0,0,0,.06); }
+  .stat { padding: 14px; }
+  .stat span { color: #666; font-size: 13px; }
+  .stat strong { display: block; color: #4f46e5; font-size: 24px; margin-top: 4px; }
+  .grid { display: grid; grid-template-columns: 330px 1fr; gap: 16px; }
   @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
-  .card { background: #fff; border-radius: 12px; padding: 20px; box-shadow: 0 2px 6px rgba(0,0,0,.06); margin-bottom: 20px; }
-  .card h2 { font-size: 18px; margin-bottom: 15px; color: #4f46e5; }
-  label { display: block; font-size: 13px; font-weight: 600; margin: 10px 0 4px; }
+  .card { padding: 16px; margin-bottom: 16px; }
+  .card h2 { color: #4f46e5; font-size: 18px; margin-bottom: 12px; }
+  label { display: block; font-size: 13px; font-weight: 700; margin: 10px 0 4px; }
   input, textarea { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; }
-  input:focus, textarea:focus { outline: none; border-color: #4f46e5; }
-  textarea { resize: vertical; min-height: 60px; }
-  .preview { margin-top: 12px; padding: 12px; background: #eef2ff; border-radius: 8px; font-size: 13px; }
-  .preview b { font-size: 18px; color: #4f46e5; letter-spacing: 1px; }
-  button { cursor: pointer; border: none; border-radius: 8px; padding: 10px 16px; font-size: 14px; font-weight: 600; transition: .2s; }
-  button:hover { opacity: .85; }
+  textarea { min-height: 60px; resize: vertical; }
+  button { cursor: pointer; border: 0; border-radius: 8px; padding: 10px 14px; font-weight: 700; }
+  button:disabled { opacity: .55; cursor: wait; }
   .btn-primary { background: #4f46e5; color: #fff; }
   .btn-success { background: #10b981; color: #fff; }
   .btn-warning { background: #f59e0b; color: #fff; }
-  .btn-danger  { background: #ef4444; color: #fff; }
-  .btn-gray    { background: #e5e7eb; color: #333; }
-  .btn-sm { padding: 5px 9px; font-size: 12px; }
-  .w100 { width: 100%; margin-top: 15px; }
+  .btn-danger { background: #ef4444; color: #fff; }
+  .btn-gray { background: #e5e7eb; color: #222; }
+  .btn-sm { padding: 5px 8px; font-size: 12px; }
+  .w100 { width: 100%; margin-top: 12px; }
+  .preview, .msg { margin-top: 10px; border-radius: 8px; padding: 10px; font-size: 13px; }
+  .preview { background: #eef2ff; }
+  .preview b { color: #4f46e5; font-size: 18px; }
+  .msg { display: none; }
+  .msg.erro { display: block; background: #fee2e2; color: #b91c1c; }
+  .msg.ok { display: block; background: #dcfce7; color: #166534; }
   table { width: 100%; border-collapse: collapse; font-size: 14px; }
-  th, td { padding: 10px; text-align: left; border-bottom: 1px solid #eee; }
-  th { background: #f9fafb; font-size: 12px; text-transform: uppercase; color: #666; }
-  tr:hover td { background: #fafaff; }
-  .codigo { font-family: monospace; background: #eef2ff; color: #4f46e5; padding: 3px 8px; border-radius: 5px; font-weight: bold; cursor: pointer; }
-  .badge { background: #10b981; color: #fff; padding: 2px 10px; border-radius: 20px; font-size: 12px; font-weight: bold; }
-  .badge.zero { background: #d1d5db; color: #555; }
-  .acoes { display: flex; gap: 4px; }
+  th, td { padding: 9px; border-bottom: 1px solid #eee; text-align: left; vertical-align: top; }
+  th { font-size: 12px; color: #666; text-transform: uppercase; }
   .table-wrap { overflow-x: auto; }
-  .ranking li { list-style: none; display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee; font-size: 14px; }
-  .ranking li:last-child { border: none; }
-  .vazio { text-align: center; color: #999; padding: 30px; }
-  .modal-bg { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.5); align-items: center; justify-content: center; z-index: 100; }
+  .codigo { font-family: monospace; background: #eef2ff; color: #4f46e5; border-radius: 5px; padding: 2px 6px; font-weight: 800; cursor: pointer; }
+  .badge { background: #10b981; color: #fff; border-radius: 20px; padding: 2px 8px; font-size: 12px; }
+  .badge.zero { background: #d1d5db; color: #444; }
+  .ranking { list-style: none; }
+  .ranking li { display: flex; justify-content: space-between; gap: 8px; padding: 8px 0; border-bottom: 1px solid #eee; }
+  .vazio { color: #888; text-align: center; padding: 18px; }
+  .modal-bg { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.5); align-items: center; justify-content: center; z-index: 20; }
   .modal-bg.ativo { display: flex; }
-  .modal { background: #fff; border-radius: 12px; padding: 25px; width: 95%; max-width: 500px; max-height: 90vh; overflow-y: auto; }
-  .modal h2 { margin-bottom: 15px; color: #4f46e5; }
-  .modal-footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
-  .info-linha { padding: 6px 0; font-size: 14px; border-bottom: 1px dashed #eee; }
-  #toast { position: fixed; bottom: 20px; right: 20px; background: #333; color: #fff; padding: 12px 20px; border-radius: 8px; opacity: 0; transition: .3s; z-index: 200; }
+  .modal { background: #fff; width: min(520px, 94vw); max-height: 90vh; overflow: auto; border-radius: 12px; padding: 18px; }
+  .modal-footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; flex-wrap: wrap; }
+  .info-linha { padding: 6px 0; border-bottom: 1px dashed #eee; font-size: 14px; }
+  #toast { position: fixed; right: 16px; bottom: 16px; background: #222; color: #fff; padding: 12px 14px; border-radius: 8px; opacity: 0; max-width: 360px; z-index: 30; }
   #toast.show { opacity: 1; }
-  #loading { position: fixed; inset: 0; background: #fff; display: flex; align-items: center; justify-content: center; font-size: 18px; z-index: 300; }
+  #toast.erro { background: #b91c1c; }
 </style>
+<script>
+setTimeout(function () {
+  if (!window.__appOk) {
+    var s = document.getElementById('status');
+    if (s) {
+      s.className = 'erro';
+      s.textContent = 'O arquivo está incompleto. Apague tudo e cole o código até a última linha </html>.';
+    }
+  }
+}, 2500);
+</script>
 </head>
 <body>
-
-<div id="loading">⏳ Carregando banco de dados...</div>
-
 <header>
-  <h1>🤝 Gerenciador de Indicações de Clientes</h1>
-  <p>Cadastre clientes, gere códigos de indicação e acompanhe quem indicou quem.</p>
-</header>
-
-<div class="container">
-
-  <div class="toolbar">
-    <button class="btn-success" onclick="exportarDB()">💾 Exportar .db</button>
-    <button class="btn-primary" onclick="document.getElementById('arquivoDB').click()">📂 Importar .db</button>
-    <button class="btn-warning" onclick="exportarCSV()">📊 Exportar CSV</button>
-    <button class="btn-danger" onclick="limparTudo()">🗑️ Apagar tudo</button>
-    <input type="file" id="arquivoDB" accept=".db,.sqlite,.sqlite3" style="display:none" onchange="importarDB(event)">
+  <div>
+    <h1>Gerenciador de Indicações — versão 3</h1>
+    <p>O cadastro abre e salva neste navegador, mesmo sem a biblioteca do arquivo .db.</p>
   </div>
-
+  <div id="status">Abrindo...</div>
+</header>
+<div class="container">
+  <div class="aviso">O temp.sh é só uma cópia pública por cerca de 3 dias. O salvamento principal é neste navegador. Faça backup pelo botão <b>Exportar</b>.</div>
+  <div class="toolbar">
+    <button class="btn-success" onclick="exportarDB()">Exportar .db</button>
+    <button class="btn-primary" onclick="document.getElementById('arquivoDB').click()">Importar .db</button>
+    <button class="btn-gray" onclick="exportarJSON()">Backup JSON</button>
+    <button class="btn-gray" onclick="document.getElementById('arquivoJSON').click()">Importar JSON</button>
+    <button class="btn-warning" onclick="enviarTempSh()">Enviar ao temp.sh</button>
+    <button class="btn-gray" onclick="importarDeLink()">Importar por link</button>
+    <button class="btn-warning" onclick="exportarCSV()">Exportar CSV</button>
+    <button class="btn-danger" onclick="limparTudo()">Apagar tudo</button>
+    <input id="arquivoDB" type="file" accept=".db,.sqlite,.sqlite3" hidden onchange="importarArquivoDB(event)">
+    <input id="arquivoJSON" type="file" accept=".json,application/json" hidden onchange="importarArquivoJSON(event)">
+  </div>
   <div class="stats">
     <div class="stat"><span>Total de clientes</span><strong id="stTotal">0</strong></div>
     <div class="stat"><span>Clientes indicados</span><strong id="stIndicados">0</strong></div>
-    <div class="stat"><span>Maior indicador</span><strong id="stTop" style="font-size:18px">—</strong></div>
+    <div class="stat"><span>Maior indicador</span><strong id="stTop">—</strong></div>
   </div>
-
   <div class="grid">
-    <!-- COLUNA ESQUERDA -->
     <div>
       <div class="card">
-        <h2>➕ Novo Cliente</h2>
-        <form id="formCliente" onsubmit="cadastrar(event)">
+        <h2>Novo cliente</h2>
+        <form onsubmit="cadastrar(event)">
           <label>Nome completo *</label>
-          <input id="nome" required placeholder="Ex: Maria Souza" oninput="atualizarPreview()">
-
+          <input id="nome" autocomplete="off" placeholder="Ex: Maria Souza" oninput="atualizarPreview()">
           <label>Telefone</label>
           <input id="telefone" placeholder="(00) 00000-0000">
-
           <label>E-mail</label>
-          <input id="email" type="email" placeholder="email@exemplo.com">
-
-          <label>Código de quem indicou (opcional)</label>
-          <input id="indicadoPor" list="listaCodigos" placeholder="Ex: JOAOS123" style="text-transform:uppercase">
+          <input id="email" placeholder="email@exemplo.com">
+          <label>Código de quem indicou</label>
+          <input id="indicadoPor" list="listaCodigos" autocomplete="off" style="text-transform:uppercase">
           <datalist id="listaCodigos"></datalist>
-
           <label>Observações</label>
           <textarea id="obs"></textarea>
-
-          <div class="preview">Código que será gerado:<br><b id="previewCodigo">—</b></div>
-
-          <button type="submit" class="btn-primary w100">Cadastrar Cliente</button>
+          <div class="preview">Código previsto: <b id="previewCodigo">—</b></div>
+          <div id="msgForm" class="msg"></div>
+          <button id="btnSalvar" class="btn-primary w100" type="submit">Cadastrar cliente</button>
         </form>
       </div>
-
       <div class="card">
-        <h2>🏆 Ranking de Indicações</h2>
+        <h2>Ranking</h2>
         <ul class="ranking" id="ranking"></ul>
       </div>
     </div>
-
-    <!-- COLUNA DIREITA -->
     <div class="card">
-      <h2>📋 Clientes</h2>
-      <input id="busca" placeholder="🔍 Buscar por nome, código, telefone ou e-mail..." oninput="renderTabela()" style="margin-bottom:15px">
+      <h2>Clientes</h2>
+      <input id="busca" placeholder="Buscar nome, código, telefone ou e-mail" oninput="renderTabela()">
       <div class="table-wrap">
         <table>
-          <thead>
-            <tr>
-              <th>Código</th><th>Nome</th><th>Contato</th><th>Indicado por</th>
-              <th>Indicações</th><th>Cadastro</th><th>Ações</th>
-            </tr>
-          </thead>
+          <thead><tr><th>Código</th><th>Nome</th><th>Contato</th><th>Indicado por</th><th>Indicações</th><th>Ações</th></tr></thead>
           <tbody id="tabela"></tbody>
         </table>
       </div>
     </div>
   </div>
 </div>
-
-<!-- MODAL -->
-<div class="modal-bg" id="modal">
-  <div class="modal" id="modalConteudo"></div>
-</div>
-
+<div class="modal-bg" id="modal" onclick="if (event.target.id === 'modal') fecharModal()"><div class="modal" id="modalConteudo"></div></div>
 <div id="toast"></div>
-
 <script>
-let SQL, db;
-let previewAtual = '';
-const DB_KEY = 'indicacoes_db';
+window.__appOk = true;
+var clientes = [];
+var SQL = null;
+var sqlPromise = null;
+var previewAtual = '';
+var CHAVE = 'indicacoes_json_v3';
 
-/* ============ IndexedDB (salvamento automático) ============ */
+var CDNS = [
+  'https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/sql-asm.js',
+  'https://cdn.jsdelivr.net/npm/sql.js@1.8.0/dist/sql-asm.js',
+  'https://unpkg.com/sql.js@1.8.0/dist/sql-asm.js'
+];
+
+function val(id) {
+  var el = document.getElementById(id);
+  return el ? el.value.trim() : '';
+}
+function esc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+    return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c];
+  });
+}
+function toast(msg, erro) {
+  var t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'show' + (erro ? ' erro' : '');
+  clearTimeout(t._t);
+  t._t = setTimeout(function () { t.className = ''; }, 4000);
+}
+function status(msg, tipo) {
+  var el = document.getElementById('status');
+  el.textContent = msg;
+  el.className = tipo || '';
+}
+function msgForm(texto, tipo) {
+  var el = document.getElementById('msgForm');
+  el.textContent = texto || '';
+  el.className = 'msg' + (texto ? ' ' + tipo : '');
+}
+function pad(n) { return (n < 10 ? '0' : '') + n; }
+function agora() {
+  var d = new Date();
+  return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
+}
+function hoje() { return new Date().toISOString().slice(0, 10); }
+function formatarData(d) {
+  if (!d) return '—';
+  var p = String(d).split(' ');
+  var x = p[0].split('-');
+  if (x.length < 3) return esc(d);
+  return x[2] + '/' + x[1] + '/' + x[0] + (p[1] ? ' ' + p[1].slice(0, 5) : '');
+}
+function comTimeout(promise, ms, texto) {
+  return Promise.race([
+    promise,
+    new Promise(function (_, rej) { setTimeout(function () { rej(new Error(texto)); }, ms); })
+  ]);
+}
 function idbOpen() {
-  return new Promise((res, rej) => {
-    const r = indexedDB.open('GerenciadorIndicacoes', 1);
-    r.onupgradeneeded = () => r.result.createObjectStore('arquivos');
-    r.onsuccess = () => res(r.result);
-    r.onerror = () => rej(r.error);
+  return new Promise(function (res, rej) {
+    if (!window.indexedDB) return rej(new Error('IndexedDB indisponível'));
+    var r = indexedDB.open('GerenciadorIndicacoes', 1);
+    r.onupgradeneeded = function () { r.result.createObjectStore('arquivos'); };
+    r.onsuccess = function () { res(r.result); };
+    r.onerror = function () { rej(r.error || new Error('erro no IndexedDB')); };
   });
 }
-async function idbSet(chave, valor) {
-  const d = await idbOpen();
-  return new Promise((res, rej) => {
-    const tx = d.transaction('arquivos', 'readwrite');
-    tx.objectStore('arquivos').put(valor, chave);
-    tx.oncomplete = res; tx.onerror = () => rej(tx.error);
+function idbSet(chave, valor) {
+  return idbOpen().then(function (d) {
+    return new Promise(function (res, rej) {
+      var tx = d.transaction('arquivos', 'readwrite');
+      tx.objectStore('arquivos').put(valor, chave);
+      tx.oncomplete = function () { res(); };
+      tx.onerror = function () { rej(tx.error || new Error('falha ao gravar')); };
+    });
   });
 }
-async function idbGet(chave) {
-  const d = await idbOpen();
-  return new Promise((res, rej) => {
-    const r = d.transaction('arquivos').objectStore('arquivos').get(chave);
-    r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+function idbGet(chave) {
+  return idbOpen().then(function (d) {
+    return new Promise(function (res, rej) {
+      var r = d.transaction('arquivos').objectStore('arquivos').get(chave);
+      r.onsuccess = function () { res(r.result); };
+      r.onerror = function () { rej(r.error || new Error('falha ao ler')); };
+    });
   });
 }
-
-/* ============ Banco de dados ============ */
-async function iniciar() {
+function carregarLocal() {
   try {
-    SQL = await initSqlJs({ locateFile: f => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/${f}` });
-    const salvo = await idbGet(DB_KEY);
-    db = salvo ? new SQL.Database(salvo) : new SQL.Database();
-    criarTabelas();
-    renderTudo();
-  } catch (e) {
-    alert('Erro ao carregar o banco: ' + e.message + '\nVerifique sua conexão com a internet (necessária para carregar o SQLite).');
-  }
-  document.getElementById('loading').style.display = 'none';
+    var raw = localStorage.getItem(CHAVE);
+    var lista = raw ? JSON.parse(raw) : [];
+    return Array.isArray(lista) ? lista : [];
+  } catch (e) { return []; }
 }
-
-function criarTabelas() {
-  db.run(`
-    CREATE TABLE IF NOT EXISTS clientes (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      nome TEXT NOT NULL,
-      telefone TEXT,
-      email TEXT,
-      codigo TEXT UNIQUE NOT NULL,
-      indicado_por TEXT,
-      observacoes TEXT,
-      data_cadastro TEXT DEFAULT (datetime('now','localtime'))
-    );
-    CREATE INDEX IF NOT EXISTS idx_indicado ON clientes(indicado_por);
-  `);
+async function persistir() {
+  var json = JSON.stringify(clientes);
+  try {
+    localStorage.setItem(CHAVE, json);
+    idbSet(CHAVE, json).catch(function () {});
+    return;
+  } catch (e) {}
+  await comTimeout(idbSet(CHAVE, json), 2000, 'tempo esgotado');
 }
-
-function q(sql, params = []) {
-  const st = db.prepare(sql);
-  st.bind(params);
-  const linhas = [];
-  while (st.step()) linhas.push(st.getAsObject());
-  st.free();
-  return linhas;
-}
-
-async function salvar() {
-  await idbSet(DB_KEY, db.export());
-}
-
-/* ============ Geração de código ============ */
 function baseCodigo(nome) {
-  const ignorar = ['DA', 'DE', 'DO', 'DAS', 'DOS', 'E'];
-  const partes = nome.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-    .toUpperCase().replace(/[^A-Z\s]/g, '').trim()
-    .split(/\s+/).filter(p => p && !ignorar.includes(p));
-  if (!partes.length) return '';
-  let base = partes[0].slice(0, 5);
-  if (partes.length > 1) base += partes[partes.length - 1][0];
-  return base;
+  var ignorar = { DA: 1, DE: 1, DO: 1, DAS: 1, DOS: 1, E: 1 };
+  var partes = nome.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/[^A-Z\s]/g, '').trim().split(/\s+/);
+  var uteis = [];
+  for (var i = 0; i < partes.length; i++) if (partes[i] && !ignorar[partes[i]]) uteis.push(partes[i]);
+  if (!uteis.length) return '';
+  return uteis[0].slice(0, 5) + (uteis.length > 1 ? uteis[uteis.length - 1].charAt(0) : '');
 }
-
-function codigoExiste(c) {
-  return q('SELECT 1 FROM clientes WHERE codigo = ?', [c]).length > 0;
+function codigoExiste(codigo) {
+  for (var i = 0; i < clientes.length; i++) if (clientes[i].codigo === codigo) return true;
+  return false;
 }
-
 function gerarCodigo(nome) {
-  const base = baseCodigo(nome) || 'CLI';
-  let codigo, tentativas = 0;
+  var base = baseCodigo(nome) || 'CLI';
+  var codigo, n = 0;
   do {
-    const digitos = tentativas < 50 ? 100 + Math.floor(Math.random() * 900)
-                                    : 1000 + Math.floor(Math.random() * 9000);
-    codigo = base + digitos;
-    tentativas++;
+    var num = n < 60 ? 100 + Math.floor(Math.random() * 900) : 1000 + Math.floor(Math.random() * 9000);
+    codigo = base + num;
+    n++;
   } while (codigoExiste(codigo));
   return codigo;
 }
-
 function atualizarPreview() {
-  const nome = document.getElementById('nome').value;
+  var nome = document.getElementById('nome').value;
   previewAtual = baseCodigo(nome) ? gerarCodigo(nome) : '';
   document.getElementById('previewCodigo').textContent = previewAtual || '—';
+  msgForm('', '');
 }
-
-/* ============ CRUD ============ */
+function totalDe(codigo) {
+  var n = 0;
+  for (var i = 0; i < clientes.length; i++) if (clientes[i].indicado_por === codigo) n++;
+  return n;
+}
+function nomePorCodigo(codigo) {
+  for (var i = 0; i < clientes.length; i++) if (clientes[i].codigo === codigo) return clientes[i].nome;
+  return '';
+}
+function proximoId() {
+  var m = 0;
+  for (var i = 0; i < clientes.length; i++) if (Number(clientes[i].id) > m) m = Number(clientes[i].id);
+  return m + 1;
+}
+function normalizar(c, i) {
+  return {
+    id: Number(c.id) || (i + 1),
+    nome: c.nome || '',
+    telefone: c.telefone || '',
+    email: c.email || '',
+    codigo: c.codigo || '',
+    indicado_por: c.indicado_por || null,
+    observacoes: c.observacoes || '',
+    data_cadastro: c.data_cadastro || ''
+  };
+}
 async function cadastrar(e) {
   e.preventDefault();
-  const nome = val('nome');
-  const indicadoPor = val('indicadoPor').toUpperCase() || null;
-
-  if (indicadoPor && !codigoExiste(indicadoPor)) {
-    return toast('❌ Código de indicação não encontrado!');
+  msgForm('', '');
+  var nome = val('nome');
+  var email = val('email');
+  var indicado = val('indicadoPor').toUpperCase() || null;
+  if (!nome) return msgForm('Informe o nome do cliente.', 'erro');
+  if (email && !/^\S+@\S+\.\S+$/.test(email)) return msgForm('E-mail inválido. Corrija ou deixe em branco.', 'erro');
+  if (indicado && !codigoExiste(indicado)) return msgForm('O código de indicação não existe. Deixe em branco se ninguém indicou.', 'erro');
+  var btn = document.getElementById('btnSalvar');
+  btn.disabled = true;
+  var base = baseCodigo(nome) || 'CLI';
+  var codigo = previewAtual;
+  if (!codigo || codigo.indexOf(base) !== 0 || codigoExiste(codigo)) codigo = gerarCodigo(nome);
+  var item = {
+    id: proximoId(), nome: nome, telefone: val('telefone'), email: email,
+    codigo: codigo, indicado_por: indicado, observacoes: val('obs'), data_cadastro: agora()
+  };
+  clientes.push(item);
+  try {
+    await persistir();
+    document.getElementById('nome').form.reset();
+    previewAtual = '';
+    document.getElementById('previewCodigo').textContent = '—';
+    renderTudo();
+    msgForm('Cliente salvo neste navegador. Código: ' + codigo, 'ok');
+    toast('Cliente salvo. Código: ' + codigo);
+    document.getElementById('nome').focus();
+  } catch (err) {
+    clientes.pop();
+    msgForm('Não foi possível salvar: ' + err.message, 'erro');
+  } finally {
+    btn.disabled = false;
   }
-
-  let codigo = previewAtual;
-  if (!codigo || codigoExiste(codigo) || !codigo.startsWith(baseCodigo(nome) || 'CLI')) {
-    codigo = gerarCodigo(nome);
-  }
-
-  db.run(`INSERT INTO clientes (nome, telefone, email, codigo, indicado_por, observacoes)
-          VALUES (?, ?, ?, ?, ?, ?)`,
-    [nome, val('telefone'), val('email'), codigo, indicadoPor, val('obs')]);
-
-  await salvar();
-  document.getElementById('formCliente').reset();
-  document.getElementById('previewCodigo').textContent = '—';
-  previewAtual = '';
-  renderTudo();
-  toast(`✅ Cliente cadastrado! Código: ${codigo}`);
 }
-
 async function excluir(id) {
-  const c = q('SELECT * FROM clientes WHERE id = ?', [id])[0];
-  const qtd = q('SELECT COUNT(*) AS n FROM clientes WHERE indicado_por = ?', [c.codigo])[0].n;
-  let msg = `Excluir o cliente "${c.nome}"?`;
-  if (qtd > 0) msg += `\n\nAtenção: ele indicou ${qtd} cliente(s). Esses vínculos serão removidos.`;
-  if (!confirm(msg)) return;
-
-  db.run('UPDATE clientes SET indicado_por = NULL WHERE indicado_por = ?', [c.codigo]);
-  db.run('DELETE FROM clientes WHERE id = ?', [id]);
-  await salvar();
-  renderTudo();
-  toast('🗑️ Cliente excluído');
+  var c = null, i;
+  for (i = 0; i < clientes.length; i++) if (clientes[i].id === id) c = clientes[i];
+  if (!c) return;
+  var qtd = totalDe(c.codigo);
+  if (!confirm('Excluir "' + c.nome + '"?' + (qtd ? '\n\nEle indicou ' + qtd + ' cliente(s). Esses vínculos serão removidos.' : ''))) return;
+  for (i = 0; i < clientes.length; i++) if (clientes[i].indicado_por === c.codigo) clientes[i].indicado_por = null;
+  clientes = clientes.filter(function (x) { return x.id !== id; });
+  try { await persistir(); renderTudo(); toast('Cliente excluído'); }
+  catch (err) { toast(err.message, true); }
 }
-
 function abrirEdicao(id) {
-  const c = q('SELECT * FROM clientes WHERE id = ?', [id])[0];
-  abrirModal(`
-    <h2>✏️ Editar Cliente</h2>
-    <p>Código: <span class="codigo">${esc(c.codigo)}</span></p>
-    <label>Nome *</label><input id="edNome" value="${esc(c.nome)}">
-    <label>Telefone</label><input id="edTel" value="${esc(c.telefone)}">
-    <label>E-mail</label><input id="edEmail" value="${esc(c.email)}">
-    <label>Indicado por (código)</label>
-    <input id="edInd" list="listaCodigos" value="${esc(c.indicado_por)}" style="text-transform:uppercase">
-    <label>Observações</label><textarea id="edObs">${esc(c.observacoes)}</textarea>
-    <div class="modal-footer">
-      <button class="btn-gray" onclick="fecharModal()">Cancelar</button>
-      <button class="btn-primary" onclick="salvarEdicao(${id}, '${esc(c.codigo)}')">Salvar</button>
-    </div>
-  `);
+  var c = null;
+  for (var i = 0; i < clientes.length; i++) if (clientes[i].id === id) c = clientes[i];
+  if (!c) return;
+  abrirModal(
+    '<h2>Editar cliente</h2><p>Código: <span class="codigo">' + esc(c.codigo) + '</span></p>' +
+    '<label>Nome *</label><input id="edNome" value="' + esc(c.nome) + '">' +
+    '<label>Telefone</label><input id="edTel" value="' + esc(c.telefone) + '">' +
+    '<label>E-mail</label><input id="edEmail" value="' + esc(c.email) + '">' +
+    '<label>Indicado por</label><input id="edInd" list="listaCodigos" value="' + esc(c.indicado_por || '') + '" style="text-transform:uppercase">' +
+    '<label>Observações</label><textarea id="edObs">' + esc(c.observacoes) + '</textarea>' +
+    '<div id="erroEd" class="msg"></div><div class="modal-footer">' +
+    '<button class="btn-gray" onclick="fecharModal()">Cancelar</button>' +
+    '<button class="btn-primary" onclick="salvarEdicao(' + id + ')">Salvar</button></div>'
+  );
 }
-
-async function salvarEdicao(id, codigoProprio) {
-  const nome = val('edNome');
-  const ind = val('edInd').toUpperCase() || null;
-  if (!nome) return toast('❌ O nome é obrigatório');
-  if (ind && ind === codigoProprio) return toast('❌ O cliente não pode indicar a si mesmo');
-  if (ind && !codigoExiste(ind)) return toast('❌ Código de indicação não encontrado');
-
-  db.run(`UPDATE clientes SET nome=?, telefone=?, email=?, indicado_por=?, observacoes=? WHERE id=?`,
-    [nome, val('edTel'), val('edEmail'), ind, val('edObs'), id]);
-  await salvar();
-  fecharModal();
-  renderTudo();
-  toast('✅ Cliente atualizado');
+async function salvarEdicao(id) {
+  var erro = document.getElementById('erroEd');
+  var c = null, i;
+  for (i = 0; i < clientes.length; i++) if (clientes[i].id === id) c = clientes[i];
+  var nome = val('edNome'), email = val('edEmail'), ind = val('edInd').toUpperCase() || null;
+  function falha(t) { erro.textContent = t; erro.className = 'msg erro'; }
+  if (!c) return;
+  if (!nome) return falha('O nome é obrigatório.');
+  if (email && !/^\S+@\S+\.\S+$/.test(email)) return falha('E-mail inválido.');
+  if (ind === c.codigo) return falha('O cliente não pode indicar a si mesmo.');
+  if (ind && !codigoExiste(ind)) return falha('Código de indicação não encontrado.');
+  c.nome = nome; c.telefone = val('edTel'); c.email = email; c.indicado_por = ind; c.observacoes = val('edObs');
+  try { await persistir(); fecharModal(); renderTudo(); toast('Cliente atualizado'); }
+  catch (err) { falha(err.message); }
 }
-
 function verDetalhes(id) {
-  const c = q(`SELECT c.*, p.nome AS nome_indicador FROM clientes c
-               LEFT JOIN clientes p ON p.codigo = c.indicado_por WHERE c.id = ?`, [id])[0];
-  const indicados = q('SELECT nome, codigo, data_cadastro FROM clientes WHERE indicado_por = ? ORDER BY data_cadastro', [c.codigo]);
-
-  const lista = indicados.length
-    ? indicados.map(i => `<div class="info-linha">👤 ${esc(i.nome)} <span class="codigo">${esc(i.codigo)}</span> <small>(${formatarData(i.data_cadastro)})</small></div>`).join('')
-    : '<p class="vazio">Nenhuma indicação ainda.</p>';
-
-  abrirModal(`
-    <h2>👤 ${esc(c.nome)}</h2>
-    <div class="info-linha"><b>Código:</b> <span class="codigo" onclick="copiar('${esc(c.codigo)}')">${esc(c.codigo)}</span></div>
-    <div class="info-linha"><b>Telefone:</b> ${esc(c.telefone) || '—'}</div>
-    <div class="info-linha"><b>E-mail:</b> ${esc(c.email) || '—'}</div>
-    <div class="info-linha"><b>Indicado por:</b> ${c.indicado_por ? esc(c.nome_indicador) + ' (' + esc(c.indicado_por) + ')' : '—'}</div>
-    <div class="info-linha"><b>Cadastro:</b> ${formatarData(c.data_cadastro)}</div>
-    <div class="info-linha"><b>Observações:</b> ${esc(c.observacoes) || '—'}</div>
-    <h3 style="margin:20px 0 10px">Clientes indicados (${indicados.length})</h3>
-    ${lista}
-    <div class="modal-footer"><button class="btn-gray" onclick="fecharModal()">Fechar</button></div>
-  `);
+  var c = null, i;
+  for (i = 0; i < clientes.length; i++) if (clientes[i].id === id) c = clientes[i];
+  if (!c) return;
+  var lista = '';
+  var n = 0;
+  for (i = 0; i < clientes.length; i++) {
+    if (clientes[i].indicado_por === c.codigo) {
+      n++;
+      lista += '<div class="info-linha">' + esc(clientes[i].nome) + ' <span class="codigo">' + esc(clientes[i].codigo) + '</span></div>';
+    }
+  }
+  if (!lista) lista = '<p class="vazio">Nenhuma indicação ainda.</p>';
+  abrirModal(
+    '<h2>' + esc(c.nome) + '</h2>' +
+    '<div class="info-linha"><b>Código:</b> <span class="codigo" onclick="copiar(\'' + esc(c.codigo) + '\')">' + esc(c.codigo) + '</span></div>' +
+    '<div class="info-linha"><b>Telefone:</b> ' + (esc(c.telefone) || '—') + '</div>' +
+    '<div class="info-linha"><b>E-mail:</b> ' + (esc(c.email) || '—') + '</div>' +
+    '<div class="info-linha"><b>Indicado por:</b> ' + (c.indicado_por ? esc(nomePorCodigo(c.indicado_por)) + ' (' + esc(c.indicado_por) + ')' : '—') + '</div>' +
+    '<div class="info-linha"><b>Cadastro:</b> ' + formatarData(c.data_cadastro) + '</div>' +
+    '<div class="info-linha"><b>Observações:</b> ' + (esc(c.observacoes) || '—') + '</div>' +
+    '<h3 style="margin:14px 0 8px">Indicados (' + n + ')</h3>' + lista +
+    '<div class="modal-footer"><button class="btn-gray" onclick="fecharModal()">Fechar</button></div>'
+  );
 }
-
-/* ============ Renderização ============ */
-function renderTudo() {
-  renderTabela();
-  renderRanking();
-  renderStats();
-  renderDatalist();
-}
-
+function renderTudo() { renderTabela(); renderRanking(); renderStats(); renderDatalist(); }
 function renderTabela() {
-  const busca = '%' + val('busca') + '%';
-  const linhas = q(`
-    SELECT c.*, p.nome AS nome_indicador,
-      (SELECT COUNT(*) FROM clientes x WHERE x.indicado_por = c.codigo) AS total
-    FROM clientes c
-    LEFT JOIN clientes p ON p.codigo = c.indicado_por
-    WHERE c.nome LIKE ? OR c.codigo LIKE ? OR c.telefone LIKE ? OR c.email LIKE ?
-    ORDER BY c.id DESC`, [busca, busca, busca, busca]);
-
-  const tb = document.getElementById('tabela');
+  var termo = val('busca').toLowerCase();
+  var linhas = clientes.filter(function (c) {
+    return (c.nome + ' ' + c.codigo + ' ' + c.telefone + ' ' + c.email).toLowerCase().indexOf(termo) >= 0;
+  }).sort(function (a, b) { return b.id - a.id; });
+  var tb = document.getElementById('tabela');
   if (!linhas.length) {
-    tb.innerHTML = '<tr><td colspan="7" class="vazio">Nenhum cliente encontrado.</td></tr>';
+    tb.innerHTML = '<tr><td colspan="6" class="vazio">Nenhum cliente cadastrado.</td></tr>';
     return;
   }
-  tb.innerHTML = linhas.map(c => `
-    <tr>
-      <td><span class="codigo" title="Clique para copiar" onclick="copiar('${esc(c.codigo)}')">${esc(c.codigo)}</span></td>
-      <td>${esc(c.nome)}</td>
-      <td><small>${esc(c.telefone) || ''}<br>${esc(c.email) || ''}</small></td>
-      <td>${c.indicado_por ? `<small>${esc(c.nome_indicador)}<br><span class="codigo">${esc(c.indicado_por)}</span></small>` : '—'}</td>
-      <td><span class="badge ${c.total == 0 ? 'zero' : ''}">${c.total}</span></td>
-      <td><small>${formatarData(c.data_cadastro)}</small></td>
-      <td class="acoes">
-        <button class="btn-gray btn-sm" title="Detalhes" onclick="verDetalhes(${c.id})">👁️</button>
-        <button class="btn-warning btn-sm" title="Editar" onclick="abrirEdicao(${c.id})">✏️</button>
-        <button class="btn-danger btn-sm" title="Excluir" onclick="excluir(${c.id})">🗑️</button>
-      </td>
-    </tr>`).join('');
+  tb.innerHTML = linhas.map(function (c) {
+    var total = totalDe(c.codigo);
+    return '<tr><td><span class="codigo" onclick="copiar(\'' + esc(c.codigo) + '\')">' + esc(c.codigo) + '</span></td>' +
+      '<td>' + esc(c.nome) + '<br><small>' + formatarData(c.data_cadastro) + '</small></td>' +
+      '<td><small>' + esc(c.telefone) + '<br>' + esc(c.email) + '</small></td>' +
+      '<td>' + (c.indicado_por ? '<small>' + esc(nomePorCodigo(c.indicado_por)) + '<br><span class="codigo">' + esc(c.indicado_por) + '</span></small>' : '—') + '</td>' +
+      '<td><span class="badge' + (total ? '' : ' zero') + '">' + total + '</span></td>' +
+      '<td><button class="btn-gray btn-sm" onclick="verDetalhes(' + c.id + ')">Ver</button> ' +
+      '<button class="btn-warning btn-sm" onclick="abrirEdicao(' + c.id + ')">Editar</button> ' +
+      '<button class="btn-danger btn-sm" onclick="excluir(' + c.id + ')">Excluir</button></td></tr>';
+  }).join('');
 }
-
 function renderRanking() {
-  const r = q(`SELECT p.nome, p.codigo, COUNT(c.id) AS total
-               FROM clientes p JOIN clientes c ON c.indicado_por = p.codigo
-               GROUP BY p.codigo ORDER BY total DESC, p.nome LIMIT 10`);
-  const medalhas = ['🥇', '🥈', '🥉'];
-  document.getElementById('ranking').innerHTML = r.length
-    ? r.map((x, i) => `<li><span>${medalhas[i] || (i + 1) + 'º'} ${esc(x.nome)}</span><span class="badge">${x.total}</span></li>`).join('')
-    : '<li class="vazio">Sem indicações ainda.</li>';
+  var lista = clientes.map(function (c) { return { nome: c.nome, total: totalDe(c.codigo) }; })
+    .filter(function (c) { return c.total > 0; })
+    .sort(function (a, b) { return b.total - a.total || a.nome.localeCompare(b.nome); })
+    .slice(0, 10);
+  var medalhas = ['1º', '2º', '3º'];
+  document.getElementById('ranking').innerHTML = lista.length ? lista.map(function (c, i) {
+    return '<li><span>' + (medalhas[i] || (i + 1) + 'º') + ' ' + esc(c.nome) + '</span><span class="badge">' + c.total + '</span></li>';
+  }).join('') : '<li class="vazio">Sem indicações ainda.</li>';
 }
-
 function renderStats() {
-  const total = q('SELECT COUNT(*) AS n FROM clientes')[0].n;
-  const indicados = q('SELECT COUNT(*) AS n FROM clientes WHERE indicado_por IS NOT NULL')[0].n;
-  const top = q(`SELECT p.nome, COUNT(*) AS t FROM clientes c JOIN clientes p ON p.codigo = c.indicado_por
-                 GROUP BY p.codigo ORDER BY t DESC LIMIT 1`)[0];
-  document.getElementById('stTotal').textContent = total;
+  var indicados = 0, top = null, i, t;
+  for (i = 0; i < clientes.length; i++) {
+    if (clientes[i].indicado_por) indicados++;
+    t = totalDe(clientes[i].codigo);
+    if (t && (!top || t > top.t)) top = { nome: clientes[i].nome, t: t };
+  }
+  document.getElementById('stTotal').textContent = clientes.length;
   document.getElementById('stIndicados').textContent = indicados;
-  document.getElementById('stTop').textContent = top ? `${top.nome} (${top.t})` : '—';
+  document.getElementById('stTop').textContent = top ? top.nome + ' (' + top.t + ')' : '—';
 }
-
 function renderDatalist() {
-  document.getElementById('listaCodigos').innerHTML =
-    q('SELECT codigo, nome FROM clientes ORDER BY nome')
-      .map(c => `<option value="${esc(c.codigo)}">${esc(c.nome)}</option>`).join('');
+  document.getElementById('listaCodigos').innerHTML = clientes
+    .slice().sort(function (a, b) { return a.nome.localeCompare(b.nome); })
+    .map(function (c) { return '<option value="' + esc(c.codigo) + '">' + esc(c.nome) + '</option>'; }).join('');
 }
-
-/* ============ Exportar / Importar ============ */
 function baixar(blob, nome) {
-  const a = document.createElement('a');
+  var a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   a.download = nome;
+  document.body.appendChild(a);
   a.click();
-  URL.revokeObjectURL(a.href);
-}
-
-function hoje() { return new Date().toISOString().slice(0, 10); }
-
-function exportarDB() {
-  baixar(new Blob([db.export()], { type: 'application/x-sqlite3' }), `indicacoes_${hoje()}.db`);
-  toast('💾 Arquivo .db exportado');
-}
-
-function importarDB(e) {
-  const arquivo = e.target.files[0];
-  if (!arquivo) return;
-  const leitor = new FileReader();
-  leitor.onload = async () => {
-    try {
-      const novo = new SQL.Database(new Uint8Array(leitor.result));
-      const tabela = novo.exec("SELECT name FROM sqlite_master WHERE type='table' AND name='clientes'");
-      if (!tabela.length) throw new Error('O arquivo não contém a tabela "clientes".');
-      if (!confirm('Importar este arquivo vai SUBSTITUIR todos os dados atuais. Deseja continuar?')) return;
-      db.close();
-      db = novo;
-      criarTabelas();
-      await salvar();
-      renderTudo();
-      toast('📂 Banco importado com sucesso!');
-    } catch (err) {
-      alert('Erro ao importar: ' + err.message);
-    }
-  };
-  leitor.readAsArrayBuffer(arquivo);
-  e.target.value = '';
-}
-
-function exportarCSV() {
-  const linhas = q(`SELECT c.codigo, c.nome, c.telefone, c.email, c.indicado_por, p.nome AS nome_indicador,
-      (SELECT COUNT(*) FROM clientes x WHERE x.indicado_por = c.codigo) AS total_indicacoes,
-      c.data_cadastro, c.observacoes
-    FROM clientes c LEFT JOIN clientes p ON p.codigo = c.indicado_por ORDER BY c.nome`);
-  if (!linhas.length) return toast('Nenhum dado para exportar');
-  const cab = ['Código', 'Nome', 'Telefone', 'E-mail', 'Código Indicador', 'Nome Indicador', 'Total Indicações', 'Data Cadastro', 'Observações'];
-  const csv = [cab.join(';'), ...linhas.map(l =>
-    Object.values(l).map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(';'))].join('\n');
-  baixar(new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' }), `indicacoes_${hoje()}.csv`);
-  toast('📊 CSV exportado');
-}
-
-async function limparTudo() {
-  if (!confirm('Tem certeza que deseja APAGAR TODOS os dados?\nRecomendo exportar o .db antes.')) return;
-  db.run('DELETE FROM clientes');
-  await salvar();
-  renderTudo();
-  toast('🗑️ Todos os dados foram apagados');
-}
-
-/* ============ Utilitários ============ */
-function val(id) { return document.getElementById(id).value.trim(); }
-function esc(s) {
-  return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-}
-function formatarData(d) {
-  if (!d) return '—';
-  const [data, hora] = d.split(' ');
-  const [a, m, di] = data.split('-');
-  return `${di}/${m}/${a}${hora ? ' ' + hora.slice(0, 5) : ''}`;
+  a.remove();
+  setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
 }
 function copiar(texto) {
-  navigator.clipboard.writeText(texto).then(() => toast(`📋 Código ${texto} copiado!`));
-}
-function toast(msg) {
-  const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.classList.add('show');
-  clearTimeout(t._timer);
-  t._timer = setTimeout(() => t.classList.remove('show'), 3000);
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(texto).then(function () { toast('Código copiado: ' + texto); }).catch(function () { prompt('Copie o código:', texto); });
+  } else prompt('Copie o código:', texto);
 }
 function abrirModal(html) {
   document.getElementById('modalConteudo').innerHTML = html;
   document.getElementById('modal').classList.add('ativo');
 }
 function fecharModal() { document.getElementById('modal').classList.remove('ativo'); }
-document.getElementById('modal').addEventListener('click', e => { if (e.target.id === 'modal') fecharModal(); });
 
+function carregarScript(src) {
+  return new Promise(function (res, rej) {
+    var s = document.createElement('script');
+    var timer = setTimeout(function () { s.remove(); rej(new Error('tempo esgotado')); }, 12000);
+    s.src = src;
+    s.onload = function () { clearTimeout(timer); res(); };
+    s.onerror = function () { clearTimeout(timer); rej(new Error('falha ao baixar')); };
+    document.head.appendChild(s);
+  });
+}
+function garantirSQL() {
+  if (SQL) return Promise.resolve(SQL);
+  if (sqlPromise) return sqlPromise;
+  sqlPromise = (async function () {
+    var ultimo = new Error('Sem internet para preparar o arquivo .db.');
+    for (var i = 0; i < CDNS.length; i++) {
+      try {
+        if (typeof initSqlJs === 'undefined') await carregarScript(CDNS[i]);
+        var mod = await comTimeout(initSqlJs(), 10000, 'SQLite demorou demais');
+        SQL = mod;
+        return mod;
+      } catch (e) { ultimo = e; }
+    }
+    throw ultimo;
+  })();
+  sqlPromise.catch(function () { sqlPromise = null; });
+  return sqlPromise;
+}
+function linhasSql(banco, sql, params) {
+  var st = banco.prepare(sql);
+  if (params && params.length) st.bind(params);
+  var out = [];
+  while (st.step()) out.push(st.getAsObject());
+  st.free();
+  return out;
+}
+async function criarBancoAtual() {
+  var banco = new SQL.Database();
+  banco.run('CREATE TABLE clientes (id INTEGER PRIMARY KEY, nome TEXT NOT NULL, telefone TEXT, email TEXT, codigo TEXT UNIQUE NOT NULL, indicado_por TEXT, observacoes TEXT, data_cadastro TEXT)');
+  for (var i = 0; i < clientes.length; i++) {
+    var c = clientes[i];
+    banco.run('INSERT INTO clientes (id, nome, telefone, email, codigo, indicado_por, observacoes, data_cadastro) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      [c.id, c.nome, c.telefone, c.email, c.codigo, c.indicado_por, c.observacoes, c.data_cadastro]);
+  }
+  return banco;
+}
+async function exportarDB() {
+  toast('Preparando arquivo .db...');
+  try {
+    await garantirSQL();
+    var banco = await criarBancoAtual();
+    var bytes = banco.export();
+    banco.close();
+    baixar(new Blob([bytes], { type: 'application/x-sqlite3' }), 'indicacoes_' + hoje() + '.db');
+    toast('Arquivo .db exportado');
+    status('Pronto. O .db foi gerado e os dados continuam neste navegador.', '');
+  } catch (err) {
+    toast('Não consegui gerar o .db agora. Use Backup JSON. ' + err.message, true);
+  }
+}
+async function aplicarLista(lista) {
+  if (!confirm('Importar vai substituir os clientes atuais deste navegador. Continuar?')) return false;
+  clientes = lista.map(normalizar);
+  await persistir();
+  renderTudo();
+  return true;
+}
+async function importarBytesDB(bytes) {
+  var header = new TextDecoder().decode(bytes.slice(0, 15));
+  if (header.indexOf('SQLite format 3') !== 0) throw new Error('Este arquivo não é um .db válido.');
+  await garantirSQL();
+  var banco = new SQL.Database(bytes);
+  var tabela = banco.exec("SELECT name FROM sqlite_master WHERE type='table' AND name='clientes'");
+  if (!tabela.length) throw new Error('O arquivo não tem a tabela de clientes.');
+  var rows = linhasSql(banco, 'SELECT * FROM clientes');
+  banco.close();
+  if (await aplicarLista(rows)) toast('Banco .db importado');
+}
+function importarArquivoDB(e) {
+  var arquivo = e.target.files && e.target.files[0];
+  e.target.value = '';
+  if (!arquivo) return;
+  var leitor = new FileReader();
+  leitor.onload = function () {
+    importarBytesDB(new Uint8Array(leitor.result)).catch(function (err) { alert(err.message); });
+  };
+  leitor.readAsArrayBuffer(arquivo);
+}
+function exportarJSON() {
+  baixar(new Blob([JSON.stringify(clientes, null, 2)], { type: 'application/json' }), 'indicacoes_' + hoje() + '.json');
+  toast('Backup JSON exportado');
+}
+function importarArquivoJSON(e) {
+  var arquivo = e.target.files && e.target.files[0];
+  e.target.value = '';
+  if (!arquivo) return;
+  var leitor = new FileReader();
+  leitor.onload = function () {
+    try {
+      var lista = JSON.parse(leitor.result);
+      if (!Array.isArray(lista)) throw new Error('JSON inválido.');
+      aplicarLista(lista).then(function (ok) { if (ok) toast('JSON importado'); });
+    } catch (err) { alert(err.message); }
+  };
+  leitor.readAsText(arquivo);
+}
+function exportarCSV() {
+  if (!clientes.length) return toast('Nenhum dado para exportar');
+  var cab = ['Código', 'Nome', 'Telefone', 'E-mail', 'Código Indicador', 'Nome Indicador', 'Total Indicações', 'Data Cadastro', 'Observações'];
+  var linhas = clientes.slice().sort(function (a, b) { return a.nome.localeCompare(b.nome); }).map(function (c) {
+    return [c.codigo, c.nome, c.telefone, c.email, c.indicado_por || '', nomePorCodigo(c.indicado_por), totalDe(c.codigo), c.data_cadastro, c.observacoes]
+      .map(function (v) { return '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"'; }).join(';');
+  });
+  baixar(new Blob(['\uFEFF' + cab.join(';') + '\n' + linhas.join('\n')], { type: 'text/csv;charset=utf-8' }), 'indicacoes_' + hoje() + '.csv');
+  toast('CSV exportado');
+}
+async function limparTudo() {
+  if (!confirm('Apagar todos os clientes deste navegador? Exporte um backup antes.')) return;
+  clientes = [];
+  try { await persistir(); renderTudo(); toast('Dados apagados'); }
+  catch (err) { toast(err.message, true); }
+}
+function arquivoAtualJson() {
+  return new Blob([JSON.stringify(clientes)], { type: 'application/json' });
+}
+async function enviarTempSh() {
+  if (!confirm('O temp.sh deixa o arquivo público por cerca de 3 dias. Qualquer pessoa com o link consegue baixá-lo. Continuar?')) return;
+  try {
+    toast('Preparando arquivo...');
+    await garantirSQL();
+    var banco = await criarBancoAtual();
+    var bytes = banco.export();
+    banco.close();
+    var arquivo = new File([bytes], 'indicacoes_' + hoje() + '.db', { type: 'application/octet-stream' });
+    if (typeof DataTransfer === 'undefined') throw new Error('Este navegador não envia arquivo automaticamente.');
+    var form = document.createElement('form');
+    form.method = 'POST';
+    form.action = 'https://temp.sh';
+    form.enctype = 'multipart/form-data';
+    form.target = '_blank';
+    var input = document.createElement('input');
+    input.type = 'file';
+    input.name = 'file';
+    var dt = new DataTransfer();
+    dt.items.add(arquivo);
+    input.files = dt.files;
+    form.appendChild(input);
+    document.body.appendChild(form);
+    form.submit();
+    setTimeout(function () { form.remove(); }, 1000);
+    abrirModal('<h2>Cópia enviada</h2><p>Copie o link que apareceu na nova aba. Se ela não abriu, permita pop-ups e tente outra vez.</p><div class="modal-footer"><button class="btn-gray" onclick="fecharModal()">Fechar</button></div>');
+  } catch (err) {
+    toast('Não foi possível enviar ao temp.sh. Exporte o .db ou o JSON. ' + err.message, true);
+  }
+}
+async function importarDeLink() {
+  var url = prompt('Cole o link do arquivo .db:');
+  if (!url) return;
+  if (!/^https?:\/\//i.test(url)) return toast('Link inválido', true);
+  toast('Baixando...');
+  try {
+    var r = await comTimeout(fetch(url), 15000, 'tempo esgotado');
+    if (!r.ok) throw new Error('Não foi possível baixar');
+    await importarBytesDB(new Uint8Array(await r.arrayBuffer()));
+  } catch (err) {
+    abrirModal('<h2>Baixe o arquivo manualmente</h2><p>O navegador bloqueou a importação direta. Abra o link, salve o .db e use <b>Importar .db</b>.</p><input style="width:100%;margin-top:10px" readonly value="' + esc(url) + '" onclick="this.select()"><div class="modal-footer"><button class="btn-gray" onclick="fecharModal()">Fechar</button><button class="btn-primary" onclick="window.open(' + JSON.stringify(url) + ', \'_blank\')">Abrir link</button></div>');
+  }
+}
+async function recuperarReservas() {
+  if (clientes.length) return;
+  try {
+    var raw = await comTimeout(idbGet(CHAVE), 1500, 'timeout');
+    var lista = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    if (Array.isArray(lista) && lista.length) {
+      clientes = lista.map(normalizar);
+      await persistir();
+      renderTudo();
+    }
+  } catch (e) {}
+}
+async function migrarDbAntigo() {
+  if (!SQL) return;
+  try {
+    var bytes = await comTimeout(idbGet('indicacoes_db'), 1500, 'timeout');
+    if (!bytes || !bytes.length) {
+      var b64 = localStorage.getItem('indicacoes_db');
+      if (!b64) return;
+      var bin = atob(b64);
+      bytes = new Uint8Array(bin.length);
+      for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    }
+    var header = new TextDecoder().decode(bytes.slice(0, 15));
+    if (header.indexOf('SQLite format 3') !== 0) return;
+    var banco = new SQL.Database(bytes);
+    var rows = linhasSql(banco, 'SELECT * FROM clientes');
+    banco.close();
+    var mudou = false;
+    rows.forEach(function (r, idx) {
+      var item = normalizar(r, idx);
+      if (item.codigo && !codigoExiste(item.codigo)) { clientes.push(item); mudou = true; }
+    });
+    if (mudou) { await persistir(); renderTudo(); toast('Clientes antigos recuperados'); }
+  } catch (e) {}
+}
+function iniciar() {
+  clientes = carregarLocal();
+  renderTudo();
+  status('Pronto para cadastrar. O cliente fica salvo neste navegador.', '');
+  recuperarReservas();
+  garantirSQL().then(function () {
+    return migrarDbAntigo();
+  }).then(function () {
+    status('Pronto. Cadastro salvo aqui e arquivo .db disponível.', '');
+  }).catch(function () {
+    status('Cadastro funcionando. Para gerar .db, conecte a internet e clique em Exportar .db.', 'alerta');
+  });
+}
 iniciar();
+</script>
+<script>
+async function bytesDoBanco() {
+  if (typeof clientes !== 'undefined' && Array.isArray(clientes) && typeof criarBancoAtual === 'function') {
+    if (typeof garantirSQL === 'function') await garantirSQL();
+    const banco = await criarBancoAtual();
+    try { return banco.export(); }
+    finally { banco.close(); }
+  }
+  if (typeof db !== 'undefined' && db && typeof db.export === 'function') return db.export();
+  throw new Error('Banco não carregado');
+}
+
+function enviarFormArquivo(url, campoArquivo, blob, nome, campos) {
+  if (typeof DataTransfer === 'undefined') {
+    throw new Error('Este navegador não consegue montar o envio automaticamente.');
+  }
+  const arquivo = new File([blob], nome, { type: 'application/octet-stream' });
+  const form = document.createElement('form');
+  form.method = 'POST';
+  form.action = url;
+  form.enctype = 'multipart/form-data';
+  form.target = '_blank';
+  (campos || []).forEach(function (c) {
+    const h = document.createElement('input');
+    h.type = 'hidden';
+    h.name = c.name;
+    h.value = c.value;
+    form.appendChild(h);
+  });
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.name = campoArquivo;
+  const dt = new DataTransfer();
+  dt.items.add(arquivo);
+  input.files = dt.files;
+  form.appendChild(input);
+  document.body.appendChild(form);
+  form.submit();
+  setTimeout(function () { form.remove(); }, 1500);
+}
+
+async function enviarTempSh() {
+  const confirmar = confirm('O arquivo ficará público por cerca de 3 dias. Quem tiver o link poderá baixar os dados dos clientes. Deseja continuar?');
+  if (!confirmar) return;
+
+  try {
+    const bytes = await bytesDoBanco();
+    window.__arquivoEnvio = new Blob([bytes], { type: 'application/octet-stream' });
+    window.__nomeEnvio = 'indicacoes_' + hoje() + '.db';
+    toast('Enviando ao temp.sh...');
+
+    try {
+      const resp = await fetch('https://temp.sh/' + encodeURIComponent(window.__nomeEnvio), {
+        method: 'PUT',
+        body: window.__arquivoEnvio
+      });
+      const texto = (await resp.text()).trim();
+      const link = (texto.match(/https?:\/\/\S+/) || [])[0];
+      if (!resp.ok || !link) throw new Error('sem link');
+      mostrarResultadoEnvio('Arquivo enviado ao temp.sh', 'Copie e guarde o link. Ele expira em cerca de 3 dias.', link);
+      return;
+    } catch (e) {
+      console.warn('PUT direto bloqueado; usando /upload', e);
+    }
+
+    enviarFormArquivo('https://temp.sh/upload', 'file', window.__arquivoEnvio, window.__nomeEnvio, []);
+    mostrarResultadoEnvio(
+      'Verifique a nova aba',
+      'O arquivo agora vai para https://temp.sh/upload, e não mais para a página inicial que retornava Method Not Allowed. Copie o link exibido na nova aba. Se ela não abrir, permita pop-ups e tente novamente.',
+      ''
+    );
+  } catch (err) {
+    toast('Falha ao enviar: ' + err.message, true);
+  }
+}
+
+function enviarLitterbox() {
+  if (!window.__arquivoEnvio) return toast('Clique primeiro em Enviar ao temp.sh', true);
+  if (!confirm('Enviar uma cópia pública que expira em 72 horas?')) return;
+  enviarFormArquivo(
+    'https://litterbox.catbox.moe/resources/internals/api.php',
+    'fileToUpload',
+    window.__arquivoEnvio,
+    window.__nomeEnvio,
+    [{ name: 'reqtype', value: 'fileupload' }, { name: 'time', value: '72h' }]
+  );
+  toast('Copie o link que aparecer na nova aba');
+}
+
+function mostrarResultadoEnvio(titulo, texto, link) {
+  window.__linkEnvio = link || '';
+  abrirModal(
+    '<h2>' + esc(titulo) + '</h2><p>' + esc(texto) + '</p>' +
+    (link ? '<input readonly value="' + esc(link) + '" onclick="this.select()" style="width:100%;margin-top:12px;padding:10px">' : '') +
+    '<div class="modal-footer">' +
+    (link ? '<button class="btn-primary" onclick="navigator.clipboard.writeText(window.__linkEnvio)">Copiar link</button>' : '') +
+    '<button class="btn-warning" onclick="enviarLitterbox()">Alternativa de 72h</button>' +
+    '<button class="btn-gray" onclick="fecharModal()">Fechar</button></div>'
+  );
+}
 </script>
 </body>
 </html>
